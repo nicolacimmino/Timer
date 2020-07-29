@@ -43,12 +43,32 @@ void showDigit(byte digit)
   }
 }
 
+void showTime(byte minutes, byte seconds)
+{
+  if (displayMux == 3)
+  {
+    showDigit(minutes / 10);
+  }
+  else if (displayMux == 2)
+  {
+    showDigit(minutes % 10);
+  }
+  else if (displayMux == 1)
+  {
+    showDigit(seconds / 10);
+  }
+  else if (displayMux == 0)
+  {
+    showDigit(seconds % 10);
+  }
+}
+
 void loop()
 {
   displayMux = (displayMux + 1) % 4;
   selectDisplay(DISPLAY_NONE);
 
-  if (((millis() / 1000) % 2))
+  if (!((millis() / 500) % 2))
   {
     digitalWrite(DECIMAL_POINT_PIN, displayMux != 1 && displayMux != 2);
   }
@@ -57,10 +77,13 @@ void loop()
     digitalWrite(DECIMAL_POINT_PIN, HIGH);
   }
 
-  showDigit(((millis() / 1000) % 10));
+  //showDigit(((millis() / 1000) % 10));
+  byte seconds = (millis() / 1000) % 60;
+  byte minutes = (60 * (millis() / 1000)) % 60;
+
+  showTime(minutes, seconds);
 
   selectDisplay(displayMux);
 
   delay(5);
-
 }
