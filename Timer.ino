@@ -3,6 +3,8 @@
 #define FIRST_SEGMENT_PIN 4
 #define FIRST_MUX_PIN A0
 #define DECIMAL_POINT_PIN 15
+#define BUTTON_LIGHT_PIN 16
+#define BUTTON_SWITCH_PIN 14
 #define DISPLAY_NONE 5
 
 void setup()
@@ -15,6 +17,11 @@ void setup()
 
   pinMode(DECIMAL_POINT_PIN, OUTPUT);
   digitalWrite(DECIMAL_POINT_PIN, HIGH);
+
+  pinMode(BUTTON_LIGHT_PIN, OUTPUT);
+  digitalWrite(BUTTON_LIGHT_PIN, LOW);
+
+  pinMode(BUTTON_SWITCH_PIN, INPUT_PULLUP);
 
   for (byte ix = 0; ix < 4; ix++)
   {
@@ -65,21 +72,26 @@ void showTime(byte minutes, byte seconds)
 
 void loop()
 {
+  while(digitalRead(BUTTON_SWITCH_PIN) == HIGH) {
+    delay(10);
+  }
+
   displayMux = (displayMux + 1) % 4;
   selectDisplay(DISPLAY_NONE);
 
   if (!((millis() / 500) % 2))
   {
     digitalWrite(DECIMAL_POINT_PIN, displayMux != 1 && displayMux != 2);
+    digitalWrite(BUTTON_LIGHT_PIN, HIGH);
   }
   else
   {
     digitalWrite(DECIMAL_POINT_PIN, HIGH);
+    digitalWrite(BUTTON_LIGHT_PIN, LOW);
   }
 
-  //showDigit(((millis() / 1000) % 10));
   byte seconds = (millis() / 1000) % 60;
-  byte minutes = (60 * (millis() / 1000)) % 60;
+  byte minutes = ((millis() / 1000) / 60) % 60;
 
   showTime(minutes, seconds);
 
