@@ -101,10 +101,6 @@ void showTimeRemaining()
   showTime(secondsToEnd);
 }
 
-void showCompletion()
-{
-}
-
 void refreshDisplay()
 {
   displayMux = (displayMux + 1) % 4;
@@ -163,6 +159,8 @@ void loop()
     }
   }
 
+  secondsToEnd = secondsToEnd % 3600;
+  
   if (!timerRunning && millis() - lastPressTime > TIMER_START_DELAY_MS && secondsToEnd > 0)
   {
     timerRunning = true;
