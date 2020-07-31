@@ -6,6 +6,15 @@
 #define BUTTON_LIGHT_PIN 16
 #define BUTTON_SWITCH_PIN 14
 #define DISPLAY_NONE 5
+#define TIMER_START_DELAY_MS 5000
+
+unsigned long pressStartTime = 0;
+unsigned long lastPressTime = millis();
+unsigned long lastTimerUpdate = millis();
+
+bool longPress = false;
+bool buttonReleased = true;
+bool timerRunning = false;
 
 void setup()
 {
@@ -75,34 +84,12 @@ void showTime(uint16_t totalSeconds)
 
 uint16_t secondsToEnd = 0;
 
-void loop()
+void refreshDisplay()
 {
-  if (digitalRead(BUTTON_SWITCH_PIN) == HIGH)
-  {
-    unsigned long pressStartTime = millis();
-
-    bool longPress = false;
-    while (digitalRead(BUTTON_SWITCH_PIN) == HIGH)
-    {
-      if (millis() - pressStartTime > 1000)
-      {
-        longPress = true;
-        break;
-      }
-    }
-
-    secondsToEnd += longPress ? 600 : 60;
-
-    while (digitalRead(BUTTON_SWITCH_PIN) == HIGH)
-    {
-      delay(1);
-    }
-  }
-
   displayMux = (displayMux + 1) % 4;
   selectDisplay(DISPLAY_NONE);
 
-  if (!((millis() / 500) % 2))
+  if (!timerRunning || !((millis() / 500) % 2))
   {
     digitalWrite(DECIMAL_POINT_PIN, displayMux != 1 && displayMux != 2);
     digitalWrite(BUTTON_LIGHT_PIN, HIGH);
@@ -118,4 +105,57 @@ void loop()
   selectDisplay(displayMux);
 
   delay(5);
+}
+
+void loop()
+{
+  if (digitalRead(BUTTON_SWITCH_PIN) == HIGH && !longPress)
+  {
+    lastPressTime = millis();
+
+    buttonReleased = false;
+
+    if (pressStartTime == 0)
+    {
+      pressStartTime = millis();
+    }
+
+    if (millis() - pressStartTime > 1000)
+    {
+      longPress = true;
+      secondsToEnd += 600;
+    }
+  }
+  else if (pressStartTime != 0 && buttonReleased)
+  {
+    secondsToEnd += longPress ? 0 : 60;
+    pressStartTime = 0;
+    longPress = false;
+  }
+  else
+  {
+    if (digitalRead(BUTTON_SWITCH_PIN) == LOW)
+    {
+      buttonReleased = true;
+    }
+  }
+
+  if (!timerRunning && millis() - lastPressTime > TIMER_START_DELAY_MS && secondsToEnd > 0)
+  {
+    timerRunning = true;
+    lastTimerUpdate = millis() - 1001;
+  }
+
+  if (timerRunning && (millis() - lastTimerUpdate > 1000))
+  {
+    secondsToEnd -= 1;
+    lastTimerUpdate = lastTimerUpdate + 1000;
+
+    if (secondsToEnd == 0)
+    {
+      timerRunning = false;
+    }
+  }
+
+  refreshDisplay();
 }
