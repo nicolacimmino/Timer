@@ -11,6 +11,7 @@
 unsigned long pressStartTime = 0;
 unsigned long lastPressTime = millis();
 unsigned long lastTimerUpdate = millis();
+unsigned long showCompletionUntil = 0;
 
 bool longPress = false;
 bool buttonReleased = true;
@@ -84,11 +85,8 @@ void showTime(uint16_t totalSeconds)
 
 uint16_t secondsToEnd = 0;
 
-void refreshDisplay()
+void showTimeRemaining()
 {
-  displayMux = (displayMux + 1) % 4;
-  selectDisplay(DISPLAY_NONE);
-
   if (!timerRunning || !((millis() / 500) % 2))
   {
     digitalWrite(DECIMAL_POINT_PIN, displayMux != 1 && displayMux != 2);
@@ -101,8 +99,33 @@ void refreshDisplay()
   }
 
   showTime(secondsToEnd);
+}
 
-  selectDisplay(displayMux);
+void showCompletion()
+{
+}
+
+void refreshDisplay()
+{
+  displayMux = (displayMux + 1) % 4;
+  selectDisplay(DISPLAY_NONE);
+
+  showTimeRemaining();
+
+  if (showCompletionUntil > millis())
+  {
+    if ((millis() / 200) % 2)
+    {
+      selectDisplay(displayMux);
+      digitalWrite(BUTTON_LIGHT_PIN, HIGH);
+    } else {
+      digitalWrite(BUTTON_LIGHT_PIN, LOW);
+    }
+  }
+  else
+  {
+    selectDisplay(displayMux);
+  }
 
   delay(5);
 }
@@ -154,6 +177,7 @@ void loop()
     if (secondsToEnd == 0)
     {
       timerRunning = false;
+      showCompletionUntil = millis() + 3000;
     }
   }
 
