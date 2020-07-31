@@ -50,8 +50,11 @@ void showDigit(byte digit)
   }
 }
 
-void showTime(byte minutes, byte seconds)
+void showTime(uint16_t totalSeconds)
 {
+  byte seconds = totalSeconds % 60;
+  byte minutes = (totalSeconds / 60) % 60;
+
   if (displayMux == 3)
   {
     showDigit(minutes / 10);
@@ -70,10 +73,30 @@ void showTime(byte minutes, byte seconds)
   }
 }
 
+uint16_t secondsToEnd = 0;
+
 void loop()
 {
-  while(digitalRead(BUTTON_SWITCH_PIN) == HIGH) {
-    delay(10);
+  if (digitalRead(BUTTON_SWITCH_PIN) == HIGH)
+  {
+    unsigned long pressStartTime = millis();
+
+    bool longPress = false;
+    while (digitalRead(BUTTON_SWITCH_PIN) == HIGH)
+    {
+      if (millis() - pressStartTime > 1000)
+      {
+        longPress = true;
+        break;
+      }
+    }
+
+    secondsToEnd += longPress ? 600 : 60;
+
+    while (digitalRead(BUTTON_SWITCH_PIN) == HIGH)
+    {
+      delay(1);
+    }
   }
 
   displayMux = (displayMux + 1) % 4;
@@ -90,10 +113,7 @@ void loop()
     digitalWrite(BUTTON_LIGHT_PIN, LOW);
   }
 
-  byte seconds = (millis() / 1000) % 60;
-  byte minutes = ((millis() / 1000) / 60) % 60;
-
-  showTime(minutes, seconds);
+  showTime(secondsToEnd);
 
   selectDisplay(displayMux);
 
