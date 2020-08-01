@@ -3,7 +3,8 @@
 #define FIRST_SEGMENT_PIN 4
 #define FIRST_MUX_PIN A0
 #define DECIMAL_POINT_PIN 15
-#define BUTTON_LIGHT_PIN 16
+#define GREEN_BUTTON_LIGHT_PIN 16
+#define RED_BUTTON_LIGHT_PIN 3
 #define BUTTON_SWITCH_PIN 14
 #define DISPLAY_NONE 5
 #define TIMER_START_DELAY_MS 5000
@@ -16,6 +17,8 @@ unsigned long showCompletionUntil = 0;
 bool longPress = false;
 bool buttonReleased = true;
 bool timerRunning = false;
+byte displayMux = 0;
+bool lowBattery = false;
 
 void setup()
 {
@@ -28,8 +31,11 @@ void setup()
   pinMode(DECIMAL_POINT_PIN, OUTPUT);
   digitalWrite(DECIMAL_POINT_PIN, HIGH);
 
-  pinMode(BUTTON_LIGHT_PIN, OUTPUT);
-  digitalWrite(BUTTON_LIGHT_PIN, LOW);
+  pinMode(GREEN_BUTTON_LIGHT_PIN, OUTPUT);
+  digitalWrite(GREEN_BUTTON_LIGHT_PIN, LOW);
+
+  pinMode(RED_BUTTON_LIGHT_PIN, OUTPUT);
+  digitalWrite(RED_BUTTON_LIGHT_PIN, LOW);
 
   pinMode(BUTTON_SWITCH_PIN, INPUT_PULLUP);
 
@@ -40,7 +46,36 @@ void setup()
   }
 }
 
-byte displayMux = 0;
+void checkBattery()
+{
+  digitalWrite(RED_BUTTON_LIGHT_PIN, lowBattery && (millis() / 500) % 2);
+
+  static unsigned long lastBatteryCheck = 0;
+
+  if (millis() - lastBatteryCheck < 3000)
+  {
+    return;
+  }
+
+  lastBatteryCheck = millis();
+
+  // See this article for an in-depth explanation.
+  // https://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/
+  // tl;dr: we switch the ADC to measure the internal 1.1v reference using Vcc as reference, the rest is simple math.
+
+  ADMUX = _BV(REFS0) | _BV(MUX4) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+
+  delay(2);
+  ADCSRA |= _BV(ADSC);
+  while (bit_is_set(ADCSRA, ADSC))
+    ;
+
+  long measuredVcc = 1125300L / (ADCL | (ADCH << 8));
+
+  analogReference(DEFAULT);
+
+  lowBattery = measuredVcc < 3000;  
+}
 
 void selectDisplay(byte display)
 {
@@ -90,12 +125,12 @@ void showTimeRemaining()
   if (!timerRunning || !((millis() / 500) % 2))
   {
     digitalWrite(DECIMAL_POINT_PIN, displayMux != 1 && displayMux != 2);
-    digitalWrite(BUTTON_LIGHT_PIN, HIGH);
+    digitalWrite(GREEN_BUTTON_LIGHT_PIN, HIGH);
   }
   else
   {
     digitalWrite(DECIMAL_POINT_PIN, HIGH);
-    digitalWrite(BUTTON_LIGHT_PIN, LOW);
+    digitalWrite(GREEN_BUTTON_LIGHT_PIN, LOW);
   }
 
   showTime(secondsToEnd);
@@ -113,9 +148,11 @@ void refreshDisplay()
     if ((millis() / 200) % 2)
     {
       selectDisplay(displayMux);
-      digitalWrite(BUTTON_LIGHT_PIN, HIGH);
-    } else {
-      digitalWrite(BUTTON_LIGHT_PIN, LOW);
+      digitalWrite(GREEN_BUTTON_LIGHT_PIN, HIGH);
+    }
+    else
+    {
+      digitalWrite(GREEN_BUTTON_LIGHT_PIN, LOW);
     }
   }
   else
@@ -160,7 +197,7 @@ void loop()
   }
 
   secondsToEnd = secondsToEnd % 3600;
-  
+
   if (!timerRunning && millis() - lastPressTime > TIMER_START_DELAY_MS && secondsToEnd > 0)
   {
     timerRunning = true;
@@ -180,4 +217,6 @@ void loop()
   }
 
   refreshDisplay();
+
+  checkBattery();
 }
