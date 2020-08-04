@@ -13,12 +13,15 @@ unsigned long pressStartTime = 0;
 unsigned long lastPressTime = millis();
 unsigned long lastTimerUpdate = millis();
 unsigned long showCompletionUntil = 0;
+uint16_t secondsToEnd = 0;
+long measuredVcc = 0;
 
 bool longPress = false;
 bool buttonReleased = true;
 bool timerRunning = false;
 byte displayMux = 0;
 bool lowBattery = false;
+bool testMode = false;
 
 void setup()
 {
@@ -43,6 +46,12 @@ void setup()
   {
     pinMode(ix + FIRST_MUX_PIN, OUTPUT);
     digitalWrite(ix + FIRST_MUX_PIN, LOW);
+  }
+
+  // We were powered up with the button pressed, enter test mode.
+  if (digitalRead(BUTTON_SWITCH_PIN))
+  {
+    testMode = true;
   }
 }
 
@@ -70,11 +79,11 @@ void checkBattery()
   while (bit_is_set(ADCSRA, ADSC))
     ;
 
-  long measuredVcc = 1125300L / (ADCL | (ADCH << 8));
+  measuredVcc = 1125300L / (ADCL | (ADCH << 8));
 
   analogReference(DEFAULT);
 
-  lowBattery = measuredVcc < 3000;  
+  lowBattery = measuredVcc < 2800;
 }
 
 void selectDisplay(byte display)
@@ -100,6 +109,12 @@ void showTime(uint16_t totalSeconds)
   byte seconds = totalSeconds % 60;
   byte minutes = (totalSeconds / 60) % 60;
 
+  if (testMode)
+  {
+    minutes = measuredVcc / 100;
+    seconds = measuredVcc % 100;
+  }
+
   if (displayMux == 3)
   {
     showDigit(minutes / 10);
@@ -118,19 +133,24 @@ void showTime(uint16_t totalSeconds)
   }
 }
 
-uint16_t secondsToEnd = 0;
-
 void showTimeRemaining()
 {
-  if (!timerRunning || !((millis() / 500) % 2))
+  if (!testMode)
   {
-    digitalWrite(DECIMAL_POINT_PIN, displayMux != 1 && displayMux != 2);
-    digitalWrite(GREEN_BUTTON_LIGHT_PIN, HIGH);
+    if (!timerRunning || !((millis() / 500) % 2))
+    {
+      digitalWrite(DECIMAL_POINT_PIN, displayMux != 1 && displayMux != 2);
+      digitalWrite(GREEN_BUTTON_LIGHT_PIN, HIGH);
+    }
+    else
+    {
+      digitalWrite(DECIMAL_POINT_PIN, HIGH);
+      digitalWrite(GREEN_BUTTON_LIGHT_PIN, LOW);
+    }
   }
   else
   {
-    digitalWrite(DECIMAL_POINT_PIN, HIGH);
-    digitalWrite(GREEN_BUTTON_LIGHT_PIN, LOW);
+    digitalWrite(DECIMAL_POINT_PIN, displayMux != 3);
   }
 
   showTime(secondsToEnd);
