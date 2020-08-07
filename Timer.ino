@@ -23,6 +23,7 @@ bool timerRunning = false;
 byte displayMux = 0;
 bool lowBattery = false;
 bool testMode = false;
+unsigned long showBatteryUntil = 2000;
 
 void setup()
 {
@@ -87,7 +88,7 @@ void checkBattery()
 
   static unsigned long lastBatteryCheck = 0;
 
-  if (lastBatteryCheck != 0 && millis() - lastBatteryCheck < 3000)
+  if (lastBatteryCheck != 0 && millis() - lastBatteryCheck < 2000)
   {
     return;
   }
@@ -105,7 +106,14 @@ void checkBattery()
   while (bit_is_set(ADCSRA, ADSC))
     ;
 
-  measuredVcc = 1125300L / (ADCL | (ADCH << 8));
+  if (measuredVcc == 0)
+  {
+    measuredVcc = 1125300L / (ADCL | (ADCH << 8));
+  }
+  else
+  {
+    measuredVcc = (measuredVcc * 0.9) + 0.1 * (1125300L / (ADCL | (ADCH << 8)));
+  }
 
   analogReference(DEFAULT);
 
@@ -140,9 +148,9 @@ void showTime(uint16_t totalSeconds)
   byte seconds = totalSeconds % 60;
   byte minutes = (totalSeconds / 60) % 60;
 
-  if (testMode)
+  if (testMode || millis() < showBatteryUntil)
   {
-    uint8_t batteryPercentage = max((measuredVcc - 2700) / 7, 0);
+    uint8_t batteryPercentage = min(max((measuredVcc - 2700) / 12, 0), 100);
 
     minutes = batteryPercentage / 100;
     seconds = batteryPercentage % 100;
@@ -168,7 +176,7 @@ void showTime(uint16_t totalSeconds)
 
 void showTimeRemaining()
 {
-  if (!testMode)
+  if (!testMode && !(millis() < showBatteryUntil))
   {
     if (!timerRunning || !((millis() / 500) % 2))
     {
@@ -183,7 +191,7 @@ void showTimeRemaining()
   }
   else
   {
-    digitalWrite(DECIMAL_POINT_PIN, displayMux != 3);
+    digitalWrite(DECIMAL_POINT_PIN, HIGH);
   }
 
   showTime(secondsToEnd);
@@ -220,6 +228,8 @@ void loop()
 {
   if (digitalRead(BUTTON_SWITCH_PIN) == HIGH && !longPress)
   {
+    showBatteryUntil = 0;
+
     lastPressTime = millis();
 
     buttonReleased = false;
