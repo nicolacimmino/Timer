@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <avr/sleep.h>
 
 #define FIRST_SEGMENT_PIN 4
 #define FIRST_MUX_PIN A0
@@ -17,7 +18,7 @@ uint16_t secondsToEnd = 0;
 long measuredVcc = 0;
 
 bool longPress = false;
-bool buttonReleased = true;
+bool buttonReleased = false;
 bool timerRunning = false;
 byte displayMux = 0;
 bool lowBattery = false;
@@ -55,13 +56,38 @@ void setup()
   }
 }
 
+void criticalShutdown()
+{
+  for (byte ix = 0; ix < 7; ix++)
+  {
+    pinMode(ix + FIRST_SEGMENT_PIN, INPUT);
+  }
+
+  pinMode(DECIMAL_POINT_PIN, INPUT);
+
+  pinMode(GREEN_BUTTON_LIGHT_PIN, INPUT);
+
+  pinMode(RED_BUTTON_LIGHT_PIN, INPUT);
+
+  pinMode(BUTTON_SWITCH_PIN, INPUT);
+
+  for (byte ix = 0; ix < 4; ix++)
+  {
+    pinMode(ix + FIRST_MUX_PIN, INPUT);
+  }
+
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_enable();
+  sleep_mode();
+  sleep_disable();
+}
 void checkBattery()
 {
   digitalWrite(RED_BUTTON_LIGHT_PIN, lowBattery && (millis() / 500) % 2);
 
   static unsigned long lastBatteryCheck = 0;
 
-  if (millis() - lastBatteryCheck < 3000)
+  if (lastBatteryCheck != 0 && millis() - lastBatteryCheck < 3000)
   {
     return;
   }
@@ -84,6 +110,11 @@ void checkBattery()
   analogReference(DEFAULT);
 
   lowBattery = measuredVcc < 2800;
+
+  if (measuredVcc < 2700)
+  {
+    criticalShutdown();
+  }
 }
 
 void selectDisplay(byte display)
@@ -111,8 +142,10 @@ void showTime(uint16_t totalSeconds)
 
   if (testMode)
   {
-    minutes = measuredVcc / 100;
-    seconds = measuredVcc % 100;
+    uint8_t batteryPercentage = max((measuredVcc - 2700) / 7, 0);
+
+    minutes = batteryPercentage / 100;
+    seconds = batteryPercentage % 100;
   }
 
   if (displayMux == 3)
